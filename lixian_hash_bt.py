@@ -2,6 +2,7 @@
 import os.path
 import sys
 import hashlib
+import chardet
 from cStringIO import StringIO
 import re
 
@@ -160,13 +161,19 @@ def verify_bt_multiple(folder, info, file_set=None, progress_callback=None):
 	piece_length = info['piece length']
 	assert piece_length > 0
 
-	path_encoding = info.get('encoding', 'utf-8')
+	path_encoding = info.get('encoding')
 	files = []
 	for x in info['files']:
 		if 'path.utf-8' in x:
 			unicode_path = [p.decode('utf-8') for p in x['path.utf-8']]
 		else:
-			unicode_path = [p.decode(path_encoding) for p in x['path']]
+			if path_encoding is None:
+				file_encoding = chardet.detect(','.join(x['path']))['encoding']
+				if file_encoding.lower() == 'gb2312':
+					file_encoding = 'gb18030'
+				unicode_path = [p.decode(file_encoding) for p in x['path']]
+			else:
+				unicode_path = [p.decode(path_encoding) for p in x['path']]
 		native_path = [p.encode(default_encoding) for p in unicode_path]
 		utf8_path = [p.encode('utf-8') for p in unicode_path]
 		files.append({'path':os.path.join(folder, apply(os.path.join, native_path)), 'length':x['length'], 'file':utf8_path})
